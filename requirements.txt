@@ -1,0 +1,17 @@
+# Para manipulación de datos y cálculos numéricos
+pandas>=1.3.0
+numpy>=1.21.0
+
+# Modelos de embeddings de frases/documentos y PyTorch como backend
+sentence-transformers>=2.2.0
+torch>=1.12.0 # O una versión compatible con tu instalación de CUDA si usas GPU
+
+# Búsqueda vectorial eficiente
+faiss-cpu>=1.7.2 # O faiss-gpu si tienes una GPU compatible y configurada
+
+# Para Word2Vec y procesamiento de lenguaje natural (NLP)
+gensim>=4.0.0
+nltk>=3.6.0
+
+# Para calcular similitud del coseno (usado con Word2Vec)
+scikit-learn>=1.0.0
