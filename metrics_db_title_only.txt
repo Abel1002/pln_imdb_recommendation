@@ -1,4 +1,4 @@
 Películas (desde DB): 9622
 Dim vector: 384
-Tiempo total: 10.74 s
+Tiempo total: 81.26 s
 Tamaño model_db_title_only.pkl: 15.1 MB
