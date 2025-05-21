@@ -30,15 +30,9 @@ from torch import nn
 from ...activations import ACT2FN
 from ...cache_utils import DynamicCache
 from ...modeling_flash_attention_utils import FlashAttentionKwargs
-from ...modeling_outputs import (
-    MoeCausalLMOutputWithPast,
-    MoeModelOutputWithPast,
-)
+from ...modeling_outputs import MoeCausalLMOutputWithPast, MoeModelOutputWithPast
 from ...processing_utils import Unpack
-from ...utils import (
-    LossKwargs,
-    logging,
-)
+from ...utils import LossKwargs, logging
 from ..mistral.modeling_mistral import (
     MistralAttention,
     MistralForCausalLM,
@@ -54,9 +48,6 @@ from .configuration_mixtral import MixtralConfig
 
 
 logger = logging.get_logger(__name__)
-
-_CHECKPOINT_FOR_DOC = "mistralai/Mixtral-8x7B-v0.1"
-_CONFIG_FOR_DOC = "MixtralConfig"
 
 
 def load_balancing_loss_func(
@@ -209,11 +200,10 @@ class MixtralSparseMoeBlock(nn.Module):
         # this will be used to easily index which expert is going to be sollicitated
         expert_mask = torch.nn.functional.one_hot(selected_experts, num_classes=self.num_experts).permute(2, 1, 0)
 
-        # Loop over all available experts in the model and perform the computation on each expert
-        for expert_idx in range(self.num_experts):
+        expert_hitted = (expert_mask.sum(dim=(-1, -2)) > 0).nonzero(as_tuple=True)[0].tolist()
+        for expert_idx in expert_hitted:
             expert_layer = self.experts[expert_idx]
             idx, top_x = torch.where(expert_mask[expert_idx])
-
             # Index the correct hidden states and compute the expert hidden state for
             # the current expert. We need to make sure to multiply the output hidden
             # states by `routing_weights` on the corresponding tokens (top-1 and top-2)
@@ -476,19 +466,10 @@ class MixtralForCausalLM(MistralForCausalLM):
         **kwargs: Unpack[KwargsForCausalLM],
     ) -> MoeCausalLMOutputWithPast:
         r"""
-            labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
-                Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
-                config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
-                (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
-
-            logits_to_keep (`int` or `torch.Tensor`, *optional*):
-                If an `int`, compute logits for the last `logits_to_keep` tokens. If `0`, calculate logits for all
-                `input_ids` (special case). Only last token logits are needed for generation, and calculating them only for that
-                token can save memory, which becomes pretty significant for long sequences or large vocabulary size.
-                If a `torch.Tensor`, must be 1D corresponding to the indices to keep in the sequence length dimension.
-                This is useful when using packed tensor format (single dimension for batch and sequence length).
-
-        Returns:
+        labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
+            config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
+            (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
 
         Example:
 
@@ -572,3 +553,13 @@ class MixtralForTokenClassification(MistralForTokenClassification):
 
 class MixtralForQuestionAnswering(MistralForQuestionAnswering):
     pass
+
+
+__all__ = [
+    "MixtralForCausalLM",
+    "MixtralForQuestionAnswering",
+    "MixtralModel",
+    "MixtralPreTrainedModel",
+    "MixtralForSequenceClassification",
+    "MixtralForTokenClassification",
+]

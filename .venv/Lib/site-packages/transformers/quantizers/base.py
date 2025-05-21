@@ -239,7 +239,7 @@ class HfQuantizer(ABC):
 
     def dequantize(self, model):
         """
-        Potentially dequantize the model to retrive the original model, with some loss in accuracy / performance.
+        Potentially dequantize the model to retrieve the original model, with some loss in accuracy / performance.
         Note not all quantization schemes support this.
         """
         model = self._dequantize(model)
@@ -252,6 +252,17 @@ class HfQuantizer(ABC):
 
         return model
 
+    def get_cuda_warm_up_factor(self):
+        """
+        The factor to be used in `caching_allocator_warmup` to get the number of bytes to pre-allocate to warm up cuda.
+        A factor of 2 means we allocate all bytes in the empty model (since we allocate in fp16), a factor of 4 means
+        we allocate half the memory of the weights residing in the empty model, etc...
+        """
+        # By default we return 4, i.e. half the model size (this corresponds to the case where the model is not
+        # really pre-processed, i.e. we do not have the info that weights are going to be 8 bits before actual
+        # weight loading)
+        return 4
+
     def _dequantize(self, model):
         raise NotImplementedError(
             f"{self.quantization_config.quant_method} has no implementation of `dequantize`, please raise an issue on GitHub."
@@ -262,14 +273,17 @@ class HfQuantizer(ABC):
         model: "PreTrainedModel",
         skip_modules: Optional[List[str]] = None,
         keep_in_fp32_modules: Optional[List[str]] = None,
+        add_default_skips: bool = False,
     ):
         from ..integrations import get_keys_to_not_convert
 
-        modules_to_not_convert = []
-        if skip_modules is None:
+        if skip_modules is None or add_default_skips:
             modules_to_not_convert = get_keys_to_not_convert(model)
         else:
-            modules_to_not_convert = skip_modules
+            modules_to_not_convert = []
+
+        if skip_modules is not None:
+            modules_to_not_convert.extend(skip_modules)
 
         if keep_in_fp32_modules is not None:
             modules_to_not_convert.extend(keep_in_fp32_modules)
@@ -304,13 +318,13 @@ class HfQuantizer(ABC):
 
         for name, module in model.named_modules():
             module_class_name = module.__class__.__name__
-            if (
-                module_class_name in MODULES_TO_PATCH_FOR_QUANTIZATION.keys()
-                and self.quantization_config.quant_method == QuantizationMethod.COMPRESSED_TENSORS
+            if module_class_name in MODULES_TO_PATCH_FOR_QUANTIZATION.keys() and (
+                self.quantization_config.quant_method
+                in MODULES_TO_PATCH_FOR_QUANTIZATION[module_class_name]["quantization_methods"]
             ):
                 with init_empty_weights():
                     parent_module, name = get_module_from_name(model, name)
-                    parent_module._modules[name] = MODULES_TO_PATCH_FOR_QUANTIZATION[module_class_name](
+                    parent_module._modules[name] = MODULES_TO_PATCH_FOR_QUANTIZATION[module_class_name]["module_name"](
                         model.config.get_text_config()
                     )
 

@@ -32,9 +32,9 @@ is_torch_greater_or_equal_than_2_6 = is_torch_greater_or_equal("2.6", accept_dev
 is_torch_greater_or_equal_than_2_4 = is_torch_greater_or_equal("2.4", accept_dev=True)
 is_torch_greater_or_equal_than_2_3 = is_torch_greater_or_equal("2.3", accept_dev=True)
 is_torch_greater_or_equal_than_2_2 = is_torch_greater_or_equal("2.2", accept_dev=True)
-is_torch_greater_or_equal_than_2_1 = is_torch_greater_or_equal("2.1", accept_dev=True)
 
 # For backwards compatibility (e.g. some remote codes on Hub using those variables).
+is_torch_greater_or_equal_than_2_1 = is_torch_greater_or_equal("2.1", accept_dev=True)
 is_torch_greater_or_equal_than_2_0 = is_torch_greater_or_equal("2.0", accept_dev=True)
 is_torch_greater_or_equal_than_1_13 = is_torch_greater_or_equal("1.13", accept_dev=True)
 is_torch_greater_or_equal_than_1_12 = is_torch_greater_or_equal("1.12", accept_dev=True)
@@ -296,6 +296,13 @@ def id_tensor_storage(tensor: torch.Tensor) -> tuple[torch.device, int, int]:
     guaranteed to be unique and constant for this tensor's storage during its lifetime. Two tensor storages with
     non-overlapping lifetimes may have the same id.
     """
+    if is_torch_greater_or_equal_than_2_0:
+        from torch.distributed.tensor import DTensor
+
+        if isinstance(tensor, DTensor):
+            local_tensor = tensor.to_local()
+            return tensor.device, local_tensor.storage().data_ptr(), tensor.nbytes
+
     if tensor.device.type == "xla" and is_torch_xla_available():
         # NOTE: xla tensors dont have storage
         # use some other unique id to distinguish.
